@@ -1,0 +1,83 @@
+#### Input Files
+bamFile: TUMORBAM                       ### bam for tumor, preferrably abra realigned
+regionsFile: TARGETSBED                 ### bed file defining regions to be analyzed
+snpVCFpath: SNPVCFPATH                  ### path to VCFs (one per chromosome) inluding first part of file before chr containing population allele frequencies as AF in info field, bgzipped and tabix indexed
+snpVCFname: SNPVCFNAME                  ### part of VCF names after chr, ex. if chr1 SNP data is in /home/reference/ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz, snpVCFpath: /home/reference/ALL.chr, snpVCFname: .phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz
+NormalBase: NORMALBASE                  ### path and file name up to chr of normal metrics file 
+cosmicVCF: COSMICVCF                    ### path VCF containing cancer mutation counts in CNT field of info field, bgziped and tabix indexed
+refGenome: REFGENOME                    ### path to reference genome
+
+#### Output Name
+outName: OUTNAME                        ### path and prefix for output files
+outMat: OUTMAT                          ### path and prefix for Matlab mat file, if this file exists, will skip reading bams and start from this file
+
+#### Dependency Paths
+samPath: SAMPATH                        ### path to folder containing samtools executable
+tabixPath: HTSLIBPATH                   ### path to folder containing bgzip and tabix executables
+workingDirectory: WORKDIR               ### path to folder containing parsePileupData.packed.pl and cghcbshybridnu.mat
+
+#### Model Parameters
+numClones: 3                              ### Number of clones to find
+priorF: 0.5                               ### expected clonal fraction
+alphaF: 1.5                               ### effects shape of prior distribution of clonal fraction
+minBCount: 5                              ### minimum bases supporting alternate allele to examine position
+blockSize: 1000                           ### size of region to parse at a time
+maxIter: 50
+numCPU: 16                                ### number of parallel processors
+cnaAlpha: 1E-5                            ### segmentation significance cutoff
+cnaPrior: [0.1;0.15;0.5;0.15;0.1]         ### copy number priors for [0;1;...;>=N] copies
+minAllelePrior: [0.25;0.5;0.25]           ### minor allele priors for [0;1;...;>=N] copies
+priorSomaticSNV: 1E-5                     ### somatic SNV prior
+priorSomaticIndel: 1E-6                   ### somatic indel prior
+pvFreq: 7.14E-5                           ### frequency of private SNVs
+pvFreqIndel: 1.43E-5                      ### frequency of private indels
+pSomaticThresh: 0.8                       ### minimum probability variant is somatic to call SomaticPASS
+pGermlineThresh: 0.8                      ### minimum probability variant is somatic to call GermlineHetPASS
+pGoodThresh: 0.99                         ### minimum probability variant belongs to PASS group to call PASS
+ReadLength: 101                           ### length of reads
+defaultBQ: 30                             ### base quality for indels
+defaultMQ: 40                             ### mapping quality for indels
+mpileupC: 50                              ### C parameter for mpileup
+minHetPopFreq: 0.05                       ### minimum population frequency for heterozygous for initial iteration
+maxSomPopFreq: 0.0001                     ### maximum population frequency for somatic for initial iteration
+minHetAF: 0.45                            ### minimum AF to select hets for centering
+maxW: 500 
+minW: 50                                  ### mimimum value of W parameter (effects sharpness of allele frequency distribution)
+minLik: 1E-10                             ### added to likelihoods to avoid taking log of zero
+minBQ: 10                                 ### minium base quality to count base
+minMQ: 10                                 ### minium mapping quality to count read
+maxBQ: 40                                 ### base quality greater than maxBQ are set to maxBQ
+BQoffset: 33                              ### subtracted from ascii value to get base quality
+MQoffset: 33                              ### subtracted from ascii value to get mapping quality
+
+#### Criteria for PASS.  Variants meeting all of the below inluded in PASS training set.
+minPerReadPASS: 0.8                       ### minimum percent of reads above minBQ and minMQ
+minABFrac: 0.95                           ### minimum fraction of reads supporting A or B allele
+minPercentStrand: 0.01                    ### minimum percent of reads supporting either allele from each strand
+minMeanMQ: 35                             ### minimum average mapping quality of reads supporting either allele
+minMeanBQ: 25                             ### minimum average base quality of bases supporting either allele
+maxPMM: 0.025                              ### maxium percent mismatches in reads suppporting either allele
+minSeqEndDist: 30                         ### minimum average distances variant position from either end of the sequence
+maxStrandDiff: 0.1                        ### maximum difference in percent of reads from each strand supporting A and B allele
+maxBQdiff: 5                              ### maximum difference in mean BQ between A and B allele
+maxMQdiff: 10                             ### maximum difference in mean MQ between A and B allele
+maxPMMdiff: 0.01                          ### maximum difference in percent mismatches between reads supporting A and B allele
+maxReadPosDiff: 10                        ### maximum difference in mean variant position between A and B allele
+minPosQual: 30                            ### minimum position quality score from analysis of unmatched controls
+minExonQual: 20                           ### minimum exon quality score from analyis of unmatched controls
+
+#### Criteria for REJECT.  Variants meeting any of the below included in REJECT training set.
+perPassReadReject: 0.7
+ABfracReject: 0.90
+perStrandReject: 0.001
+meanBQReject: 20
+meanMQReject: 30
+PMMReject: 0.05
+seqEndDistReject: 10
+strandDiffReject: 0.2
+BQdiffReject: 10
+MQdiffReject: 15
+PMMdiffReject: 0.02
+ReadPosDiffReject: 20
+posQualReject: 10
+exonQualReject: 10

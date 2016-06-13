@@ -1,0 +1,28 @@
+### input files
+regionsFile: TARGETSBED                         ### regions to be analyzed in BED format
+bamList: BAMLISTFILE                            ### path to file containing paths to control bams (one per line)
+refGenome: REFGENOME                            ### reference genome
+snpVCFpath: SNPVCFPATH                  ### path to VCFs (one per chromosome) inluding first part of file before chr containing population allele frequencies as AF in info field, bgzipped and tabix indexed
+snpVCFname: SNPVCFNAME                  ### part of VCF names after chr, ex. if chr1 SNP data is in /home/reference/ALL.chr1.phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz, snpVCFpath: /home/reference/ALL.chr, snpVCFname: .phase3_shapeit2_mvncall_integrated_v5a.20130502.genotypes.vcf.gz
+
+#### Dependency Paths
+samPath: SAMPATH                        ### path to folder containing samtools executable
+tabixPath: HTSLIBPATH                   ### path to folder containing bgzip and tabix executables
+workingDirectory: WORKDIR               ### path to folder containing parsePileupData.packed.pl and cghcbshybridnu.mat
+
+### output files
+outName: OUTNAME                        ### path and prefix for output files
+
+### model parameters
+mpileupC: 50                            ### mpileup C parameter
+pvFreq: 7.14E-5                         ### frequency of SNV not in snpVCF
+pvFreqIndel: 1.43E-5                    ### frequency of indel not in snpVCF
+blockSize: 1000                         ### size of region to parse at a time
+minBQ: 10                               ### minimum base quality to be counted
+maxBQ: 40                               ### base quality greater than maxBQ are set to maxBQ
+minMQ: 10                               ### minimum mapping quality to be counted
+defaultBQ: 30                           ### BQ when it is not available
+defaultMQ: 40                           ### MQ when it is not available
+BQoffset: 33                            ### BQ offset to convert from ascii value
+MQoffset: 33                            ### MQ offset to convert from ascii value
+priorMapError: 0.03                     ### probability that a position is mapped poorly
