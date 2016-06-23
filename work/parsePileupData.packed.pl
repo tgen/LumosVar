@@ -7,26 +7,26 @@ my %fatpacked;
 
 $fatpacked{"Math/BaseCalc.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'MATH_BASECALC';
   package Math::BaseCalc;
-  
+
   use strict;
   use Carp;
   use vars qw($VERSION);
   $VERSION = '1.014';
-  
+
   sub new {
     my ($pack, %opts) = @_;
     my $self = bless {}, $pack;
-    $self->{has_dash} = 0; 
+    $self->{has_dash} = 0;
     $self->digits($opts{digits});
     return $self;
   }
-  
+
   sub digits {
     my $self = shift;
     if (@_) {
       # Set the value
-  
-  
+
+
       if (ref $_[0]) {
         $self->{digits} = [ @{ shift() } ];
       } else {
@@ -36,16 +36,16 @@ $fatpacked{"Math/BaseCalc.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'M
         $self->{digits} = $digitsets{$name};
       }
       $self->{has_dash} = grep { $_ eq '-' } @{$self->{digits}};
-  
+
       $self->{trans} = {};
       # Build the translation table back to numbers
       @{$self->{trans}}{@{$self->{digits}}} = 0..$#{$self->{digits}};
-  
+
     }
     return @{$self->{digits}};
   }
-  
-  
+
+
   sub _digitsets {
     return (
         'bin' => [0,1],
@@ -56,19 +56,19 @@ $fatpacked{"Math/BaseCalc.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'M
         '62'  => [0..9,'a'..'z','A'..'Z'],
        );
   }
-  
+
   sub from_base {
     my $self = shift;
     return -1*$self->from_base(substr($_[0],1)) if !$self->{has_dash} && $_[0] =~ /^-/; # Handle negative numbers
     my $str = shift;
     my $dignum = @{$self->{digits}};
-  
+
     # Deal with stuff after the decimal point
     my $add_in = 0;
     if ($str =~ s/\.(.+)//) {
       $add_in = $self->from_base(reverse $1)/$dignum**length($1);
     }
-  
+
     $str = reverse $str;
     my $result = 0;
     my $trans = $self->{trans};
@@ -78,17 +78,17 @@ $fatpacked{"Math/BaseCalc.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'M
       # For large numbers, force result to be an integer (not a float)
       $result = int($result*$dignum + $trans->{chop $str});
     }
-  
+
     # The bizarre-looking next line is necessary for proper handling of very large numbers
     return $add_in ? $result + $add_in : $result;
   }
-  
+
   sub to_base {
     my ($self,$num) = @_;
     return '-'.$self->to_base(-1*$num) if $num<0; # Handle negative numbers
-  
+
     my $dignum = @{$self->{digits}};
-  
+
     my $result = '';
     while ($num>0) {
       substr($result,0,0) = $self->{digits}[ $num % $dignum ];
@@ -98,138 +98,883 @@ $fatpacked{"Math/BaseCalc.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'M
     }
     return length $result ? $result : $self->{digits}[0];
   }
-  
-  
+
+
   1;
   __END__
-  
-  
+
+
   =head1 NAME
-  
+
   Math::BaseCalc - Convert numbers between various bases
-  
+
   =head1 VERSION
-  
+
   version 1.017
-  
+
   =head1 SYNOPSIS
-  
+
     use Math::BaseCalc;
-  
+
     my $calc = new Math::BaseCalc(digits => [0,1]); #Binary
     my $bin_string = $calc->to_base(465); # Convert 465 to binary
-  
+
     $calc->digits('oct'); # Octal
     my $number = $calc->from_base('1574'); # Convert octal 1574 to decimal
-  
+
   =head1 DESCRIPTION
-  
+
   This module facilitates the conversion of numbers between various
   number bases.  You may define your own digit sets, or use any of
   several predefined digit sets.
-  
+
   The to_base() and from_base() methods convert between Perl numbers and
   strings which represent these numbers in other bases.  For instance,
   if you're using the binary digit set [0,1], $calc->to_base(5) will
   return the string "101".  $calc->from_base("101") will return the
   number 5.
-  
+
   To convert between, say, base 7 and base 36, use the 2-step process
   of first converting to a Perl number, then to the desired base for the
   result:
-  
+
    $calc7  = new Math::BaseCalc(digits=>[0..6]);
    $calc36 = new Math::BaseCalc(digits=>[0..9,'a'..'z']);
-  
+
    $in_base_36 = $calc36->to_base( $calc7->from_base('3506') );
-  
+
   If you just need to handle regular octal & hexdecimal strings, you
   probably don't need this module.  See the sprintf(), oct(), and hex()
   Perl functions.
-  
+
   =head1 METHODS
-  
+
   =over 4
-  
+
   =item * new Math::BaseCalc
-  
+
   =item * new Math::BaseCalc(digits=>...)
-  
+
   Create a new base calculator.  You may specify the digit set to use,
   by either giving the digits in a list reference (in increasing order,
   with the 'zero' character first in the list) or by specifying the name
   of one of the predefined digit sets (see the digit() method below).
-  
+
   If your digit set includes the character C<->, then a dash at the
   beginning of a number will no longer signify a negative number.
-  
+
   =item * $calc->to_base(NUMBER)
-  
+
   Converts a number to a string representing that number in the
   associated base.
-  
+
   If C<NUMBER> is a C<Math::BigInt> object, C<to_base()> will still work
   fine and give you an exact result string.
-  
+
   =item * $calc->from_base(STRING)
-  
+
   Converts a string representing a number in the associated base to a
   Perl integer.  The behavior when fed strings with characters not in
   $calc's digit set is currently undefined.
-  
+
   If C<STRING> converts to a number too large for perl's integer
   representation, beware that the result may be auto-converted to a
   floating-point representation and thus only be an approximation.
-  
+
   =item * $calc->digits
-  
+
   =item * $calc->digits(...)
-  
+
   Get/set the current digit set of the calculator.  With no arguments,
   simply returns a list of the characters that make up the current digit
   set.  To change the current digit set, pass a list reference
   containing the new digits, or the name of a predefined digit set.
   Currently the predefined digit sets are:
-  
+
          bin => [0,1],
          hex => [0..9,'a'..'f'],
          HEX => [0..9,'A'..'F'],
          oct => [0..7],
          64  => ['A'..'Z','a'..'z',0..9,'+','/'],
          62  => [0..9,'a'..'z','A'..'Z'],
-  
+
    Examples:
     $calc->digits('bin');
     $calc->digits([0..7]);
     $calc->digits([qw(w a l d o)]);
-  
+
   If any of your "digits" has more than one character, the behavior is
   currently undefined.
-  
+
   =back
-  
+
   =head1 QUESTIONS
-  
+
   The '64' digit set is meant to be useful for Base64 encoding.  I took
   it from the MIME::Base64.pm module.  Does it look right?  It's sure in
   a strange order.
-  
+
   =head1 AUTHOR
-  
+
   Ken Williams, ken@forum.swarthmore.edu
-  
+
   =head1 COPYRIGHT
-  
+
   This is free software in the colloquial nice-guy sense of the word.
   Copyright (c) 1999, Ken Williams.  You may redistribute and/or modify
   it under the same terms as Perl itself.
-  
+
   =head1 SEE ALSO
-  
+
   perl(1).
-  
+
   =cut
 MATH_BASECALC
+
+$fatpacked{"TGen/parseMpileup.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'TGEN_PARSEMPILEUP';
+  package TGen::parseMpileup;
+  use warnings;
+  use strict;
+  use Data::Dumper;
+  use File::stat;
+  use List::Util qw[min max];
+
+  sub parse
+  {
+    my ($processName,$pileup,$filt,$param)=@_;
+    my @pileupLines=split(/\n/,$pileup);
+    my $pileupData=[];
+    my @NT=('A', 'C', 'G', 'T');
+    my @currSeqIdx;
+    my $nextSeqIdx;
+    my $mismatchCount={};
+    my $seqLength={};
+    my $seqIdx={};
+    my $first=1;
+    my $i=0;
+    #print Dumper($pileup);
+    foreach my $line (@pileupLines)
+    {
+      my ($chr,$pos,$ref,$readCount,$bases,$baseQual,$mapQual,$readPos)=split(/\t/,$line);
+      my $currBases=$bases;
+      my $currBaseQual=$baseQual;
+      $currBaseQual=~s/\\\\/\t\t/g;
+      $currBaseQual=~s/\t/\\/g;
+      $currBaseQual=~s/\\'/'/g;
+      #print "baseQual\n$currBaseQual\n";
+      my $currMapQual=$mapQual;
+      my @readPosArray=split(/\,/,$readPos);
+      if($first)
+      {
+        @currSeqIdx=(1..$readCount);
+        $nextSeqIdx=$readCount+1;
+        $currBases=~s/\^.//g;
+        $first=0;
+      }
+      elsif($pileupData->[$i-1]->{'Pos'}!=$pos-1)
+      {
+        @currSeqIdx=($currSeqIdx[-1]...$currSeqIdx[-1]+$readCount);
+      }
+
+      my $j=0;
+      #print "pos: $pos depth: $readCount parsing: $bases\n";
+      my %ntCount=();
+      my %ntCountStrand=();
+      my %ntBQsum=();
+      my %ntMQsum=();
+      my %ntReadPosSum=();
+      my $lowQCBaseCount=0;
+      foreach my $nt (@NT)
+      {
+        #print "$nt at pos: ";
+        $ntCount{$nt}=0;
+        $ntCountStrand{$nt}=0;
+        $ntCountStrand{lc($nt)}=0;
+        $ntBQsum{$nt}=0;
+        $ntMQsum{$nt}=0;
+        $ntReadPosSum{$nt}=0;
+      }
+
+      while($currBases)
+      {
+       #print "at $j: $currBases\n";
+      #print "curr base qual has length" . length($currBaseQual) . "\n$currBaseQual\n";
+      #print "curr map qual has length" . length($currMapQual) . "\n$currMapQual\n";
+      #print "curr bases has length" . length($currBases) . "\n$currBases\n";
+       #print "BQ: $currBaseQual\n";
+       #print "MQ: $currMapQual\n";
+        if($currBases=~/^\^/)
+        {
+          splice(@currSeqIdx,$j,0,$nextSeqIdx);
+          #print "added new seq $nextSeqIdx\n";
+          $nextSeqIdx++;
+          $currBases=substr($currBases,2);
+        }
+        my $currBQ=min(ord(substr($currBaseQual,0,1))-$param->{'BQoffset'},$param->{'maxBQ'});
+        my $currMQ=ord(substr($currMapQual,0,1))-$param->{'MQoffset'};
+       #print "BQ is $currBQ and MQ is $currMQ with $currBases\n";
+        if($currBases=~/^(.)([\+\-])(\d+)/gc)
+        {
+          #print "1: $1 2: $2 3: $3\n";
+          my $indelStr=$2 . $3 . substr($currBases,pos($currBases),$3);
+          my $indelLen=$3;
+          my $b=$1;
+          if($2 =~/\+/)
+          {
+            $seqLength->{$currSeqIdx[$j]}+=$indelLen;
+          }
+          else
+          {
+            $seqLength->{$currSeqIdx[$j]}-=$indelLen;
+          }
+          if($currBQ>=$param->{'minBQ'} && $currMQ>=$param->{'minMQ'} && $b=~/([AGCTagct])/)
+          {
+            $mismatchCount->{$currSeqIdx[$j]}++;
+            $seqIdx->{$pos}->{uc($b)}.=$currSeqIdx[$j] . ';';
+            $ntCount{uc($b)}++;
+            $ntBQsum{uc($b)}+=$currBQ;
+            $ntMQsum{uc($b)}+=$currMQ;
+            $ntReadPosSum{uc($b)}+=$readPosArray[0];
+            $ntCountStrand{$b}++;
+          }
+          if($currMQ>=$param->{'minMQ'})
+          {
+            $mismatchCount->{$currSeqIdx[$j]}+=$indelLen;
+            $seqIdx->{$pos}->{uc($indelStr)}.=$currSeqIdx[$j] . ';';
+            if(exists($ntCount{uc($indelStr)}))
+            {
+              $ntCount{uc($indelStr)}++;
+              $ntBQsum{uc($indelStr)}+=$param->{'defaultBQ'};
+              $ntMQsum{uc($indelStr)}+=$currMQ;
+              $ntReadPosSum{uc($indelStr)}+=$readPosArray[0];
+              #print "currMQ is $currMQ and currBQ is $currBQ for $indelStr at $pos\n";
+            }
+            else
+            {
+              $ntCount{uc($indelStr)}=1;
+              $ntBQsum{uc($indelStr)}=$param->{'defaultBQ'};
+              $ntMQsum{uc($indelStr)}=$currMQ;
+              $ntReadPosSum{uc($indelStr)}=$readPosArray[0];
+              #print "currMQ is $currMQ and currBQ is $currBQ for $indelStr at $pos\n";
+            }
+            if(exists($ntCountStrand{$indelStr}))
+            {
+              $ntCountStrand{$indelStr}++
+            }
+            else
+            {
+              $ntCountStrand{$indelStr}=1;
+            }
+          }
+          else
+          {
+            $lowQCBaseCount++;
+          }
+          $currBases=substr($currBases,length($indelStr)+1);
+        }
+        elsif($currBases=~/^([\.\,])/)
+        {
+          #print "found ref $ref at $j seqIdx=$currSeqIdx[$j]\n";
+          #print "currMQ is $currMQ and currBQ is $currBQ for $1 at $pos\n";
+          $seqLength->{$currSeqIdx[$j]}++;
+          if($currBQ>=$param->{'minBQ'} && $currMQ>=$param->{'minMQ'})
+          {
+            $seqIdx->{$pos}->{uc($ref)}.=$currSeqIdx[$j] . ';';
+            $ntCount{$ref}++;
+            $ntBQsum{$ref}+=$currBQ;
+            $ntMQsum{$ref}+=$currMQ;
+            $ntReadPosSum{$ref}+=$readPosArray[0];
+            #print "currMQ is $currMQ and currBQ is $currBQ for $1 at $pos\n";
+            if($1=~/\./)
+            {
+              $ntCountStrand{$ref}++;
+            }
+            else
+            {
+              $ntCountStrand{lc($ref)}++;
+            }
+          }
+          else
+          {
+            $lowQCBaseCount++;
+          }
+          $currBases=substr($currBases,1);
+        }
+        elsif($currBases=~/^([AGCTagct])/)
+        {
+          $seqLength->{$currSeqIdx[$j]}++;
+          if($currBQ>=$param->{'minBQ'} && $currMQ>=$param->{'minMQ'})
+          {
+            $mismatchCount->{$currSeqIdx[$j]}++;
+            $seqIdx->{$pos}->{uc($1)}.=$currSeqIdx[$j] . ';';
+            $ntCount{uc($1)}++;
+            $ntBQsum{uc($1)}+=$currBQ;
+            $ntMQsum{uc($1)}+=$currMQ;
+            $ntReadPosSum{uc($1)}+=$readPosArray[0];
+            $ntCountStrand{$1}++;
+            #print "currMQ is $currMQ and currBQ is $currBQ for $1 at $pos\n";
+          }
+          else
+          {
+            $lowQCBaseCount++;
+          }
+          $currBases=substr($currBases,1);
+        }
+        else
+        {
+          $seqLength->{$currSeqIdx[$j]}++;
+          if($currMQ>=$param->{'minMQ'})
+          {
+            $ntCount{'*'}++;
+            $ntMQsum{'*'}+=$currMQ;
+            #$ntBQsum{'*'}+=$currBQ;
+            #print "currMQ is $currMQ and currBQ is $currBQ for $1 at $pos\n";
+          }
+          else
+          {
+            $lowQCBaseCount++;
+          }
+          $currBases=substr($currBases,1);
+        }
+        if (length($currBaseQual)==0)
+        {
+          print "at $pos empty base qual\n";
+        }
+        $currBaseQual=substr($currBaseQual,1);
+        $currMapQual=substr($currMapQual,1);
+        shift(@readPosArray);
+        if($currBases=~/^\$/)
+        {
+          #print "removing $currSeqIdx[$j]\n";
+          $currBases=substr($currBases,1);
+          splice(@currSeqIdx,$j,1);
+          #print Dumper(@currSeqIdx);
+        }
+        else
+        {
+          $j++;
+        }
+      }
+      #print "currentSeqIdx: " . Dumper(@currSeqIdx);
+      #print "seqIdx: " . Dumper($seqIdx);
+      #print "seqLength: " . Dumper($seqLength);
+      #print "mismatchCount: " . Dumper($mismatchCount);
+      #unless (length($baseQual)==$readCount)
+      #{
+      #print "found " . length($baseQual) . " BQ " . length ($mapQual) . " MQ for RD" . $readCount . " in:\n $line\n";
+      #print Dumper(ord($baseQual));
+      #}
+
+      $pileupData->[$i]->{'Chr'}=$chr;
+      $pileupData->[$i]->{'Pos'}=$pos;
+      $pileupData->[$i]->{'readCount'}=$readCount;
+      $pileupData->[$i]->{'readCountPass'}=$readCount-$lowQCBaseCount;
+      #$pileupData->[$i]->{'RefCountF'}=($bases =~ tr/\.//);
+      #$pileupData->[$i]->{'RefCountR'}=($bases =~ tr/\,//);
+      $pileupData->[$i]->{'RefCountFpass'}=$ntCountStrand{$ref};
+      $pileupData->[$i]->{'RefCountRpass'}=$ntCountStrand{lc($ref)};
+      if(exists($ntCount{'*'}))
+      {
+        $pileupData->[$i]->{'delCount'}=$ntCount{'*'};
+        $pileupData->[$i]->{'delMQ'}=$ntMQsum{'*'}/$ntCount{'*'};
+        #$pileupData->[$i]->{'delBQ'}=$ntBQsum{'*'}/$ntCount{'*'};
+        delete($ntCount{'*'});
+      }
+      $pileupData->[$i]->{'MismatchCountF'}=0;
+      $pileupData->[$i]->{'MismatchCountR'}=0;
+      #print "ntCountStrand for $pos:\n";
+      #print Dumper(%ntCountStrand);
+      foreach $b (keys %ntCountStrand)
+      {
+        if(uc($b) eq $ref)
+        {
+          next;
+        }
+        elsif($b eq uc($b))
+        {
+          $pileupData->[$i]->{'MismatchCountF'}+=$ntCountStrand{$b};
+          #print "found f mismatch $b\n";
+        }
+        else
+        {
+          $pileupData->[$i]->{'MismatchCountR'}+=$ntCountStrand{$b};
+          #print "found r mismatch $b\n"
+        }
+      }
+
+      my @ntSort = (sort { $ntCount{$b} <=> $ntCount{$a} } keys %ntCount);
+
+      #print "ntCountF: " . Dumper(%ntCountF);
+      #print "ntCountF: " . Dumper(%ntCountR);
+      #print Dumper($pileupData->[$i]);
+      if(!exists($ntCountStrand{$ntSort[1]}))
+      {
+        $ntCountStrand{$ntSort[1]}=0;
+      }
+      if(!exists($ntCountStrand{lc($ntSort[1])}))
+      {
+        $ntCountStrand{lc($ntSort[1])}=0;
+      }
+      if(!exists($ntCountStrand{$ntSort[0]}))
+      {
+        $ntCountStrand{$ntSort[0]}=0;
+      }
+      if(!exists($ntCountStrand{lc($ntSort[0])}))
+      {
+        $ntCountStrand{lc($ntSort[0])}=0;
+      }
+      #print "ntSort: " . Dumper(@ntSort);
+      #print "ntCountStrand: " . Dumper(%ntCountStrand);
+      #if ($filt>0 && ($ntCountStrand{$ntSort[1]}/($readCount-$lowQCBaseCount)<$param->{'minPercentStrand'}  || $ntCountStrand{lc($ntSort[1])}/($readCount-$lowQCBaseCount)<$param->{'minPercentStrand'} || $ntCountStrand{$ntSort[0]}/($readCount-$lowQCBaseCount)<$param->{'minPercentStrand'}  || $ntCountStrand{lc($ntSort[0])}/($readCount-$lowQCBaseCount)<$param->{'minPercentStrand'} || ))
+      #{
+      # #print "strand biase filter $bases\n";
+      # #print Dumper(%ntCountStrand);
+      # #print Dumper($param);
+      # #print Dumper(@ntSort);
+      # #print "readCount $readCount, lowQCBaseCount $lowQCBaseCount\n";
+      #  $i++;
+      #  next;
+      #}
+      #print "ntBQsum: " . Dumper(%ntBQsum);
+      #print "ntSort: " . Dumper(@ntSort);
+      my $indelCount=0;
+      my @tempNTSort;
+      foreach my $j (0 .. $#ntSort)
+      {
+        if($ntSort[$j]=~/^[\-\+]/)
+        {
+          $indelCount++;
+          #print "indelCount: $indelCount old " . Dumper(@ntSort);
+          unless($indelCount>1)
+          {
+            push(@tempNTSort,$ntSort[$j]);
+          }
+        }
+        else
+        {
+          push(@tempNTSort,$ntSort[$j]);
+        }
+      }
+
+      #print "ntSort: " . Dumper(@ntSort);
+      #print "tempNTSort: " . Dumper(@tempNTSort);
+      @ntSort=@tempNTSort;
+      if(($ntSort[0] eq $ref && $ntCount{$ntSort[1]}<$param->{'minBCount'} || $ntCount{$ntSort[0]}<$param->{'minBCount'}) && $filt>0)
+      {
+        $i++;
+        next;
+      }
+
+      $pileupData->[$i]->{'Astring'}=$ntSort[0];
+      if($ntCount{$ntSort[1]}>0)
+      {
+        $pileupData->[$i]->{'Bstring'}=$ntSort[1];
+      }
+      elsif($ntSort[0] eq $ref)
+      {
+        $pileupData->[$i]->{'Bstring'}='N';
+      }
+      else
+      {
+        $pileupData->[$i]->{'Bstring'}=$ref;
+      }
+
+      $pileupData->[$i]->{'RefString'}=$ref;
+      if($ntSort[0]=~/^\-(\d+)/)
+      {
+
+       #print "found deletion: " . Dumper(@ntSort);
+        $pileupData->[$i]->{'Ref'}=$ref . substr($ntSort[0],length($ntSort[0])-$1);
+        $pileupData->[$i]->{'A'}=$ref;
+        $pileupData->[$i]->{'B'}=$ntSort[1] . substr($ntSort[0],length($ntSort[0])-$1);
+      }
+      elsif($ntSort[1]=~/^\-(\d+)/)
+      {
+         #print "found deletion: " . Dumper(@ntSort);
+        $pileupData->[$i]->{'Ref'}=$ref . substr($ntSort[1],length($ntSort[1])-$1);
+        $pileupData->[$i]->{'A'}=$ntSort[0] . substr($ntSort[1],length($ntSort[1])-$1);
+        $pileupData->[$i]->{'B'}=$ref;
+      }
+      elsif($ntSort[0]=~/^\+(\d+)/)
+      {
+         #print "found insertion: " . Dumper(@ntSort);
+        $pileupData->[$i]->{'Ref'}=$ref;
+        $pileupData->[$i]->{'A'}=$ref . substr($ntSort[0],length($ntSort[0])-$1);
+        $pileupData->[$i]->{'B'}=$ntSort[1];
+      }
+      elsif($ntSort[1]=~/^\+(\d+)/)
+      {
+         #print "found insertion: " . Dumper(@ntSort);
+        $pileupData->[$i]->{'Ref'}=$ref;
+        $pileupData->[$i]->{'A'}=$ntSort[0];
+        $pileupData->[$i]->{'B'}=$ref . substr($ntSort[1],length($ntSort[1])-$1);
+      }
+      elsif($ntCount{$ntSort[1]}>0)
+      {
+        $pileupData->[$i]->{'Ref'}=$ref;
+        $pileupData->[$i]->{'A'}=$ntSort[0];
+        $pileupData->[$i]->{'B'}=$ntSort[1];
+      }
+      elsif($ntSort[0] eq $ref)
+      {
+        $pileupData->[$i]->{'Ref'}=$ref;
+        $pileupData->[$i]->{'A'}=$ntSort[0];
+        $pileupData->[$i]->{'B'}='N';
+      }
+      else
+      {
+        $pileupData->[$i]->{'Ref'}=$ref;
+        $pileupData->[$i]->{'A'}=$ntSort[0];
+        $pileupData->[$i]->{'B'}=$ref;
+      }
+
+      $pileupData->[$i]->{'AcountF'}=$ntCountStrand{$ntSort[0]};
+      $pileupData->[$i]->{'AcountR'}=$ntCountStrand{lc($ntSort[0])};
+      if($ntCount{$ntSort[0]}>0)
+      {
+        #print "Calculating A BQ for $ntSort[0] sum= $ntBQsum{$ntSort[0]} count= $ntCount{$ntSort[0]}\n";
+        $pileupData->[$i]->{'AmeanBQ'}=$ntBQsum{$ntSort[0]}/$ntCount{$ntSort[0]};
+        $pileupData->[$i]->{'AmeanMQ'}=$ntMQsum{$ntSort[0]}/$ntCount{$ntSort[0]};
+        $pileupData->[$i]->{'AmeanReadPos'}=$ntReadPosSum{$ntSort[0]}/$ntCount{$ntSort[0]};
+      }
+      else
+      {
+        $pileupData->[$i]->{'AmeanBQ'}=$param->{'defaultBQ'};
+        $pileupData->[$i]->{'AmeanMQ'}=$param->{'defaultMQ'};
+        $pileupData->[$i]->{'AmeanReadPos'}=0;
+      }
+      $pileupData->[$i]->{'BcountF'}=$ntCountStrand{$ntSort[1]};
+      $pileupData->[$i]->{'BcountR'}=$ntCountStrand{lc($ntSort[1])};
+      if($ntCount{$ntSort[1]}>0)
+      {
+        #print "Calculating B BQ for $ntSort[1] sum= $ntBQsum{$ntSort[1]} count= $ntCount{$ntSort[1]}\n";
+        $pileupData->[$i]->{'BmeanBQ'}=$ntBQsum{$ntSort[1]}/$ntCount{$ntSort[1]};
+        $pileupData->[$i]->{'BmeanMQ'}=$ntMQsum{$ntSort[1]}/$ntCount{$ntSort[1]};
+        $pileupData->[$i]->{'BmeanReadPos'}=$ntReadPosSum{$ntSort[1]}/$ntCount{$ntSort[1]};
+      }
+      else
+      {
+        $pileupData->[$i]->{'BmeanBQ'}=$param->{'defaultBQ'};
+        $pileupData->[$i]->{'BmeanMQ'}=$param->{'defaultMQ'};
+        $pileupData->[$i]->{'BmeanReadPos'}=0;
+      }
+      $i++;
+    }
+    #print "SeqIdx: " . Dumper($seqIdx);
+    #print "pileupData: " . Dumper($pileupData);
+    if($filt)
+    {
+      for (my $i = 0; $i <= $#$pileupData; $i++)
+      {
+        unless(exists($pileupData->[$i]->{'Ref'}))
+        {
+          next;
+        }
+        #print "analyzing pileup of $i " . Dumper($pileupData->[$i]);
+        #print Dumper($seqIdx->{$pileupData->[$i]->{'Pos'}});
+        my @AseqIdx=split(/\;/,$seqIdx->{$pileupData->[$i]->{'Pos'}}->{$pileupData->[$i]->{'Astring'}});
+        my $mismatchSum=0;
+        my $lengthSum=0;
+        ###if doesn't exist 0 mismatches
+        #print "mismatch counts: " . Dumper($mismatchCount);
+        #print "seqIdx: " . Dumper($seqIdx);
+        foreach my $idx (@AseqIdx)
+        {
+          ####need to subtract variant from mismatch count
+          if(exists($mismatchCount->{$idx}))
+          {
+            $mismatchSum+=$mismatchCount->{$idx};
+            #print "$idx has $mismatchCount->{$idx} with length $seqLength->{$idx}\n";
+          }
+          $lengthSum+=$seqLength->{$idx};
+        }
+        if($pileupData->[$i]->{'RefString'} eq $pileupData->[$i]->{'Astring'})
+        {
+          #print "A variant is Ref with $mismatchSum mismatches out of $lengthSum\n";
+          $pileupData->[$i]->{'AmeanPMM'}=$mismatchSum/$lengthSum;
+        }
+        elsif($pileupData->[$i]->{'Astring'}=~/^([\-\+])(\d+)/)
+        {
+          #print "1: $1 2: $2\n";
+          my $sign=$1;
+          my $indelLen=$2;
+          #print "A variant is indel, old BcountF" . $pileupData->[$i]->{'BcountF'} . ", old BcountR" . $pileupData->[$i]->{'BcountR'} . "\n";
+          $pileupData->[$i]->{'AmeanPMM'}=($mismatchSum-$2*($pileupData->[$i]->{'AcountF'}+$pileupData->[$i]->{'AcountR'}))/$lengthSum;
+          if($sign=~/\-/ && $pileupData->[$i]->{'Bstring'} eq $pileupData->[$i]->{'RefString'})
+          {
+            #my $readCountSum=0;
+            #my $readCountPassSum=0;
+            #my $refSumFpass=0;
+            #my $refSumRpass=0;
+            #my $delCountSum=0;
+            #my $delMQSum=0;
+            #my $delBQSum=0;
+            my $misMatchSumF=0;
+            my $misMatchSumR=0;
+            for(my $j=$i+1;$j<=$i+$indelLen;$j++)
+            {
+              if(exists($pileupData->[$j]))
+              {
+                $misMatchSumF+=$pileupData->[$j]->{'MismatchCountF'};
+                $misMatchSumR+=$pileupData->[$j]->{'MismatchCountR'};
+                #print Dumper($pileupData->[$j]);
+                #print "mismatch sumF $misMatchSumF mismatch sumR $misMatchSumR\n";
+                #$refSumFpass+=$pileupData->[$j]->{'RefCountFpass'};
+                #$refSumRpass+=$pileupData->[$j]->{'RefCountRpass'};
+                #$readCountSum+=$pileupData->[$j]->{'readCount'};
+                #$readCountPassSum+=$pileupData->[$j]->{'readCountPass'};
+                #$delCountSum+=$pileupData->[$j]->{'delCount'};
+                #$delMQSum+=$pileupData->[$j]->{'delMQ'};
+                #$delBQSum=+$pileupData->[$j]->{'delBQ'};
+              }
+            }
+            $pileupData->[$i]->{'BcountF'}=max($pileupData->[$i]->{'BcountF'}-$misMatchSumF/$indelLen,0);
+            $pileupData->[$i]->{'BcountR'}=max($pileupData->[$i]->{'BcountR'}-$misMatchSumR/$indelLen,0);
+            #if($pileupData->[$i]->{'AcountF'}+$pileupData->[$i]->{'AcountR'}!=$delCountSum/$indelLen)
+            #{
+            #  my $delCountDiff=$pileupData->[$i]->{'AcountF'}+$pileupData->[$i]->{'AcountR'}-$delCountSum/$indelLen;
+            #  $pileupData->[$i]->{'AcountF'}-=$delCountDiff/2;
+            #  $pileupData->[$i]->{'AcountR'}-=$delCountDiff/2;
+            #}
+            #$pileupData->[$i]->{'readCount'}=$readCountSum/$indelLen;
+            #$pileupData->[$i]->{'readCountPass'}=$readCountPassSum/$indelLen;
+            #$pileupData->[$i]->{'AmeanMQ'}=$delMQSum/$indelLen;          #print "new BCountF" . $pileupData->[$i]->{'BcountF'} . "\n";
+            #$pileupData->[$i]->{'AmeanBQ'}=$delBQSum/$indelLen;
+          }
+        }
+        else
+        {
+          #print "A variant is SNV " . $pileupData->[$i]->{'Astring'} . "and ref is" . $pileupData->[$i]->{'Ref'} . "\n";
+          $pileupData->[$i]->{'AmeanPMM'}=($mismatchSum-$pileupData->[$i]->{'AcountF'}-$pileupData->[$i]->{'AcountR'})/$lengthSum;
+        }
+        #print Dumper($pileupData->[$i]);
+        my @BseqIdx=();
+        if (defined($seqIdx->{$pileupData->[$i]->{'Pos'}}->{$pileupData->[$i]->{'Bstring'}}))
+        {
+          @BseqIdx=split(/\;/,$seqIdx->{$pileupData->[$i]->{'Pos'}}->{$pileupData->[$i]->{'Bstring'}});
+        }
+        $mismatchSum=0;
+        $lengthSum=0;
+        foreach my $idx (@BseqIdx)
+        {
+          if(exists($mismatchCount->{$idx}))
+          {
+            $mismatchSum+=$mismatchCount->{$idx};
+            #print "$idx has $mismatchCount->{$idx} with length $seqLength->{$idx}\n";
+          }
+          $lengthSum+=$seqLength->{$idx};
+        }
+        if($lengthSum==0)
+        {
+          $pileupData->[$i]->{'BmeanPMM'}=0;
+        }
+        elsif($pileupData->[$i]->{'RefString'} eq $pileupData->[$i]->{'Bstring'})
+        {
+          #print "B variant is Ref\n";
+          $pileupData->[$i]->{'BmeanPMM'}=$mismatchSum/$lengthSum;
+        }
+        elsif($pileupData->[$i]->{'Bstring'}=~/^([\-\+])(\d+)/)
+        {
+          #print "B variant is indel, old AcountF" . $pileupData->[$i]->{'AcountF'} . "\n";
+          #print "B 1: $1 2: $2\n";
+          my $sign=$1;
+          my $indelLen=$2;
+          #print "sign: $sign indelLen: $indelLen\n";
+          $pileupData->[$i]->{'BmeanPMM'}=($mismatchSum-$2*($pileupData->[$i]->{'BcountF'}+$pileupData->[$i]->{'BcountR'}))/$lengthSum;
+          if($sign=~/\-/ && $pileupData->[$i]->{'Astring'} eq $pileupData->[$i]->{'RefString'})
+          {
+            #my $readCountSum=0;
+            #my $readCountPassSum=0;
+            #my $refSumFpass=0;
+            #my $refSumRpass=0;
+            #my $delCountSum=0;
+            #my $delMQSum=0;
+            #my $delBQSum=0;
+            my $misMatchSumF=0;
+            my $misMatchSumR=0;
+            for(my $j=$i+1;$j<=$i+$indelLen;$j++)
+            {
+              if(exists($pileupData->[$j]))
+              {
+                $misMatchSumF+=$pileupData->[$j]->{'MismatchCountF'};
+                $misMatchSumR+=$pileupData->[$j]->{'MismatchCountR'};
+               #print Dumper($pileupData->[$j]);
+                #$refSumFpass+=$pileupData->[$j]->{'RefCountFpass'};
+                #$refSumRpass+=$pileupData->[$j]->{'RefCountRpass'};
+                #$readCountSum+=$pileupData->[$j]->{'readCount'};
+                #$readCountPassSum+=$pileupData->[$j]->{'readCountPass'};
+                #$delCountSum+=$pileupData->[$j]->{'delCount'};
+                #$delMQSum+=$pileupData->[$j]->{'delMQ'};
+                #$delBQSum+=$pileupData->[$j]->{'delBQ'};
+              }
+            }
+            $pileupData->[$i]->{'AcountF'}=max($pileupData->[$i]->{'AcountF'}-$misMatchSumF/$indelLen,0);
+            $pileupData->[$i]->{'AcountR'}=max($pileupData->[$i]->{'AcountR'}-$misMatchSumR/$indelLen,0);
+            #if($pileupData->[$i]->{'BcountF'}+$pileupData->[$i]->{'BcountR'}!=$delCountSum/$indelLen)
+            #{
+            #  my $delCountDiff=$pileupData->[$i]->{'BcountF'}+$pileupData->[$i]->{'BcountR'}-$delCountSum/$indelLen;
+            #  $pileupData->[$i]->{'BcountF'}-=$delCountDiff/2;
+            #  $pileupData->[$i]->{'BcountR'}-=$delCountDiff/2;
+            #}
+            #$pileupData->[$i]->{'readCount'}=$readCountSum/$indelLen;
+            #$pileupData->[$i]->{'readCountPass'}=$readCountPassSum/$indelLen;
+            #$pileupData->[$i]->{'BmeanMQ'}=$delMQSum/$indelLen;
+            #$pileupData->[$i]->{'BmeanBQ'}=$delBQSum/$indelLen;
+            #print "new ACountF" . $pileupData->[$i]->{'AcountF'} . "\n";
+          }
+        }
+        else
+        {
+          #print "B variant is SNV\n";
+          $pileupData->[$i]->{'BmeanPMM'}=($mismatchSum-$pileupData->[$i]->{'BcountF'}-$pileupData->[$i]->{'BcountR'})/$lengthSum;
+        }
+      }
+    }
+
+    #print Dumper($pileupData);
+    #print Dumper($param);
+    return $pileupData;
+  }
+
+  sub parseMulti()
+  {
+    my ($processName,$pileup,$filt,$param)=@_;
+    my @pileupLines=split(/\n/,$pileup);
+    my $splitPileup=[];
+    my $pileupData=[];
+    my $line=shift(@pileupLines);
+    my @array=split(/\t/,$line);
+    #print Dumper(@array);
+    #print "parsing pileupline with $#array elements\n";
+    for(my $i=0;$i<($#array-2)/5;$i++)
+    {
+      my $startPos=$i*5+3;
+      my $endPos=$i*5+7;
+      #print "joining element $i from $startPos  to $endPos:" .join("\t",@array[$startPos..$endPos]) . "\n";
+      $splitPileup->[$i]=join("\t",@array[0..2]) . "\t" . join("\t",@array[$startPos..$endPos]) . "\n";
+    }
+    foreach $line (@pileupLines)
+    {
+      #my ($chr,$pos,$ref,$readCount,$bases,$baseQual,$mapQual,$readPos)=split(/\t/,$line);
+      my @array=split(/\t/,$line);
+      #print Dumper(@array);
+      #print "parsing pileupline with $#array elements\n";
+      for(my $i=0;$i<($#array-2)/5;$i++)
+      {
+        my $startPos=$i*5+3;
+        my $endPos=$i*5+7;
+        #print "joining element $i from $startPos  to $endPos:" .join("\t",@array[$startPos..$endPos]) . "\n";
+        $splitPileup->[$i] .= join("\t",@array[0..2]) . "\t" . join("\t",@array[$startPos..$endPos]) . "\n";
+      }
+    }
+    my $i=0;
+    foreach my $currPileup (@$splitPileup)
+    {
+      #print "pileup for $i\n";
+      $pileupData->[$i]=&parse('NA',$currPileup,$filt,$param);
+      $i++;
+    }
+    return $pileupData;
+  }
+
+  return 1;
+TGEN_PARSEMPILEUP
+
+$fatpacked{"TGen/parseSNPvcf.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'TGEN_PARSESNPVCF';
+  #!/usr/bin/perl
+  package TGen::parseSNPvcf;
+  use warnings;
+  use strict;
+  use Data::Dumper;
+  use File::stat;
+  use List::Util qw[min max];
+
+  sub getAF
+  {
+    my ($processName,$vcfText)=@_;
+    my @vcfLines=split(/\n/,$vcfText);
+    my $vcfData={};
+    my @NT=('A', 'C', 'G', 'T');
+    foreach my $line (@vcfLines)
+    {
+      chomp $line;
+      my @fields=split(/\t/,$line);
+      my $chrPos=$fields[0] . ':' . $fields[1];
+      $vcfData->{$chrPos}->{'ref'}=$fields[3];
+      $vcfData->{$chrPos}->{'alt'}=$fields[4];
+      $vcfData->{$chrPos}->{'qual'}=$fields[5];
+      $vcfData->{$chrPos}->{'filter'}=$fields[6];
+      #my @infoFields=split(/\;/,$info);
+      $fields[7] =~m/AF\=(0\.[0-9]*)/;
+      $vcfData->{$chrPos}->{'AF'}=$1;
+    }
+    return $vcfData;
+  }
+
+  sub getAFbyNT
+  {
+    my ($processName,$vcfText,$pvFreq)=@_;
+    my @vcfLines=split(/\n/,$vcfText);
+    my $vcfData={};
+    foreach my $line (@vcfLines)
+    {
+      chomp $line;
+      my @fields=split(/\t/,$line);
+      my $chrPos=$fields[0] . ':' . $fields[1];
+      $vcfData->{$chrPos}->{'qual'}=$fields[5];
+      $vcfData->{$chrPos}->{'filter'}=$fields[6];
+      #my @infoFields=split(/\;/,$info);
+      my $AF=$pvFreq;
+      if ($fields[7] =~m/AF\=(0\.[0-9]*)/)
+      {
+        $AF=$1;
+      }
+      #$vcfData->{$chrPos}->{$fields[3]}=1-$AF-2*$pvFreq;
+      $vcfData->{$chrPos}->{$fields[4]}=$AF;
+      if(exists($vcfData->{$chrPos}->{$fields[3]}))
+      {
+        $vcfData->{$chrPos}->{$fields[3]}-=$AF;
+      }
+      else
+      {
+        $vcfData->{$chrPos}->{$fields[3]}=1-$AF-2*$pvFreq;
+      }
+    }
+    return $vcfData;
+  }
+
+  sub getCNT
+  {
+    my ($processName,$vcfText)=@_;
+    my @vcfLines=split(/\n/,$vcfText);
+    my $vcfData={};
+    my @NT=('A', 'C', 'G', 'T');
+    foreach my $line (@vcfLines)
+    {
+      chomp $line;
+      my @fields=split(/\t/,$line);
+      my $chrPos=$fields[0] . ':' . $fields[1];
+      $vcfData->{$chrPos}->{'ref'}=$fields[3];
+      $vcfData->{$chrPos}->{'alt'}=$fields[4];
+      $vcfData->{$chrPos}->{'qual'}=$fields[5];
+      $vcfData->{$chrPos}->{'filter'}=$fields[6];
+      #my @infoFields=split(/\;/,$info);
+      $fields[7] =~m/CNT\=([0-9]*)/;
+      if(exists($vcfData->{$chrPos}->{'CNT'}))
+      {
+        $vcfData->{$chrPos}->{'CNT'}=max($1,$vcfData->{$chrPos}->{'CNT'});
+      }
+      else
+      {
+        $vcfData->{$chrPos}->{'CNT'}=$1;
+      }
+    }
+    return $vcfData;
+  }
+
+
+  return 1;
+TGEN_PARSESNPVCF
 
 $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_TINY';
   use 5.008001; # sane UTF-8 support
@@ -239,27 +984,27 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
   # XXX-INGY is 5.8.1 too old/broken for utf8?
   # XXX-XDG Lancaster consensus was that it was sufficient until
   # proven otherwise
-  
+
   our $VERSION = '1.69';
-  
+
   #####################################################################
   # The YAML::Tiny API.
   #
   # These are the currently documented API functions/methods and
   # exports:
-  
+
   use Exporter;
   our @ISA       = qw{ Exporter  };
   our @EXPORT    = qw{ Load Dump };
   our @EXPORT_OK = qw{ LoadFile DumpFile freeze thaw };
-  
+
   ###
   # Functional/Export API:
-  
+
   sub Dump {
       return YAML::Tiny->new(@_)->_dump_string;
   }
-  
+
   # XXX-INGY Returning last document seems a bad behavior.
   # XXX-XDG I think first would seem more natural, but I don't know
   # that it's worth changing now
@@ -272,19 +1017,19 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
           return $self->[-1];
       }
   }
-  
+
   # XXX-INGY Do we really need freeze and thaw?
   # XXX-XDG I don't think so.  I'd support deprecating them.
   BEGIN {
       *freeze = \&Dump;
       *thaw   = \&Load;
   }
-  
+
   sub DumpFile {
       my $file = shift;
       return YAML::Tiny->new(@_)->_dump_file($file);
   }
-  
+
   sub LoadFile {
       my $file = shift;
       my $self = YAML::Tiny->_load_file($file);
@@ -295,11 +1040,11 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
           return $self->[-1];
       }
   }
-  
-  
+
+
   ###
   # Object Oriented API:
-  
+
   # Create an empty YAML::Tiny object
   # XXX-INGY Why do we use ARRAY object?
   # NOTE: I get it now, but I think it's confusing and not needed.
@@ -313,7 +1058,7 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
       my $class = shift;
       bless [ @_ ], $class;
   }
-  
+
   # XXX-INGY It probably doesn't matter, and it's probably too late to
   # change, but 'read/write' are the wrong names. Read and Write
   # are actions that take data from storage to memory
@@ -321,33 +1066,33 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
   # Perl objects, which the terms dump and load are meant. As long as
   # this is a legacy quirk to YAML::Tiny it's ok, but I'd prefer not
   # to add new {read,write}_* methods to this API.
-  
+
   sub read_string {
       my $self = shift;
       $self->_load_string(@_);
   }
-  
+
   sub write_string {
       my $self = shift;
       $self->_dump_string(@_);
   }
-  
+
   sub read {
       my $self = shift;
       $self->_load_file(@_);
   }
-  
+
   sub write {
       my $self = shift;
       $self->_dump_file(@_);
   }
-  
-  
-  
-  
+
+
+
+
   #####################################################################
   # Constants
-  
+
   # Printed form of the unprintable characters in the lowest range
   # of ASCII characters, listed by ASCII ordinal position.
   my @UNPRINTABLE = qw(
@@ -356,7 +1101,7 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
       x10  x11  x12  x13  x14  x15  x16  x17
       x18  x19  x1A  e    x1C  x1D  x1E  x1F
   );
-  
+
   # Printable characters for escapes
   my %UNESCAPES = (
       0 => "\x00", z => "\x00", N    => "\x85",
@@ -364,17 +1109,17 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
       n => "\x0a", v => "\x0b", f    => "\x0c",
       r => "\x0d", e => "\x1b", '\\' => '\\',
   );
-  
+
   # XXX-INGY
   # I(ngy) need to decide if these values should be quoted in
   # YAML::Tiny or not. Probably yes.
-  
+
   # These 3 values have special meaning when unquoted and using the
   # default YAML schema. They need quotes if they are strings.
   my %QUOTE = map { $_ => 1 } qw{
       null true false
   };
-  
+
   # The commented out form is simpler, but overloaded the Perl regex
   # engine due to recursion and backtracking problems on strings
   # larger than 32,000ish characters. Keep it for reference purposes.
@@ -385,25 +1130,25 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
   my $re_capture_unquoted_key  = qr/([^:]+(?::+\S(?:[^:]*|.*?(?=:)))*)(?=\s*\:(?:\s+|$))/;
   my $re_trailing_comment      = qr/(?:\s+\#.*)?/;
   my $re_key_value_separator   = qr/\s*:(?:\s+(?:\#.*)?|$)/;
-  
-  
-  
-  
-  
+
+
+
+
+
   #####################################################################
   # YAML::Tiny Implementation.
   #
   # These are the private methods that do all the work. They may change
   # at any time.
-  
-  
+
+
   ###
   # Loader functions:
-  
+
   # Create an object from a file
   sub _load_file {
       my $class = ref $_[0] ? ref shift : shift;
-  
+
       # Check the file
       my $file = shift or $class->_error( 'You did not specify a file name' );
       $class->_error( "File '$file' does not exist" )
@@ -412,19 +1157,19 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
           unless -f _;
       $class->_error( "Insufficient permissions to read '$file'" )
           unless -r _;
-  
+
       # Open unbuffered with strict UTF-8 decoding and no translation layers
       open( my $fh, "<:unix:encoding(UTF-8)", $file );
       unless ( $fh ) {
           $class->_error("Failed to open file '$file': $!");
       }
-  
+
       # flock if available (or warn if not possible for OS-specific reasons)
       if ( _can_flock() ) {
           flock( $fh, Fcntl::LOCK_SH() )
               or warn "Couldn't lock '$file' for reading: $!";
       }
-  
+
       # slurp the contents
       my $contents = eval {
           use warnings FATAL => 'utf8';
@@ -434,15 +1179,15 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
       if ( my $err = $@ ) {
           $class->_error("Error reading from file '$file': $err");
       }
-  
+
       # close the file (release the lock)
       unless ( close $fh ) {
           $class->_error("Failed to close file '$file': $!");
       }
-  
+
       $class->_load_string( $contents );
   }
-  
+
   # Create an object from a string
   sub _load_string {
       my $class  = ref $_[0] ? ref shift : shift;
@@ -452,7 +1197,7 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
           unless ( defined $string ) {
               die \"Did not provide a string to load";
           }
-  
+
           # Check if Perl has it marked as characters, but it's internally
           # inconsistent.  E.g. maybe latin1 got read on a :utf8 layer
           if ( utf8::is_utf8($string) && ! utf8::valid($string) ) {
@@ -461,23 +1206,23 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
   Did you decode with lax ":utf8" instead of strict ":encoding(UTF-8)"?
   ...
           }
-  
+
           # Ensure Unicode character semantics, even for 0x80-0xff
           utf8::upgrade($string);
-  
+
           # Check for and strip any leading UTF-8 BOM
           $string =~ s/^\x{FEFF}//;
-  
+
           # Check for some special cases
           return $self unless length $string;
-  
+
           # Split the file into lines
           my @lines = grep { ! /^\s*(?:\#.*)?\z/ }
                   split /(?:\015{1,2}\012|\015|\012)/, $string;
-  
+
           # Strip the initial YAML header
           @lines and $lines[0] =~ /^\%YAML[: ][\d\.]+.*\z/ and shift @lines;
-  
+
           # A nibbling parser
           my $in_document = 0;
           while ( @lines ) {
@@ -492,7 +1237,7 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
                   }
                   $in_document = 1;
               }
-  
+
               if ( ! @lines or $lines[0] =~ /^(?:---|\.\.\.)/ ) {
                   # A naked document
                   push @$self, undef;
@@ -500,7 +1245,7 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
                       shift @lines;
                   }
                   $in_document = 0;
-  
+
               # XXX The final '-+$' is to look for -- which ends up being an
               # error later.
               } elsif ( ! $in_document && @$self ) {
@@ -511,19 +1256,19 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
                   my $document = [ ];
                   push @$self, $document;
                   $self->_load_array( $document, [ 0 ], \@lines );
-  
+
               } elsif ( $lines[0] =~ /^(\s*)\S/ ) {
                   # A hash at the root
                   my $document = { };
                   push @$self, $document;
                   $self->_load_hash( $document, [ length($1) ], \@lines );
-  
+
               } else {
                   # Shouldn't get here.  @lines have whitespace-only lines
                   # stripped, and previous match is a line with any
                   # non-whitespace.  So this clause should only be reachable via
                   # a perlbug where \s is not symmetric with \S
-  
+
                   # uncoverable statement
                   die \"YAML::Tiny failed to classify the line '$lines[0]'";
               }
@@ -535,17 +1280,17 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
       } elsif ( $err ) {
           $self->_error($err);
       }
-  
+
       return $self;
   }
-  
+
   sub _unquote_single {
       my ($self, $string) = @_;
       return '' unless length $string;
       $string =~ s/\'\'/\'/g;
       return $string;
   }
-  
+
   sub _unquote_double {
       my ($self, $string) = @_;
       return '' unless length $string;
@@ -555,34 +1300,34 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
            {(length($1)>1)?pack("H2",$2):$UNESCAPES{$1}}gex;
       return $string;
   }
-  
+
   # Load a YAML scalar string to the actual Perl scalar
   sub _load_scalar {
       my ($self, $string, $indent, $lines) = @_;
-  
+
       # Trim trailing whitespace
       $string =~ s/\s*\z//;
-  
+
       # Explitic null/undef
       return undef if $string eq '~';
-  
+
       # Single quote
       if ( $string =~ /^$re_capture_single_quoted$re_trailing_comment\z/ ) {
           return $self->_unquote_single($1);
       }
-  
+
       # Double quote.
       if ( $string =~ /^$re_capture_double_quoted$re_trailing_comment\z/ ) {
           return $self->_unquote_double($1);
       }
-  
+
       # Special cases
       if ( $string =~ /^[\'\"!&]/ ) {
           die \"YAML::Tiny does not support a feature in line '$string'";
       }
       return {} if $string =~ /^{}(?:\s+\#.*)?\z/;
       return [] if $string =~ /^\[\](?:\s+\#.*)?\z/;
-  
+
       # Regular unquoted string
       if ( $string !~ /^[>|]/ ) {
           die \"YAML::Tiny found illegal characters in plain scalar: '$string'"
@@ -591,17 +1336,17 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
           $string =~ s/\s+#.*\z//;
           return $string;
       }
-  
+
       # Error
       die \"YAML::Tiny failed to find multi-line scalar content" unless @$lines;
-  
+
       # Check the indent depth
       $lines->[0]   =~ /^(\s*)/;
       $indent->[-1] = length("$1");
       if ( defined $indent->[-2] and $indent->[-1] <= $indent->[-2] ) {
           die \"YAML::Tiny found bad indenting in line '$lines->[0]'";
       }
-  
+
       # Pull the lines
       my @multiline = ();
       while ( @$lines ) {
@@ -609,16 +1354,16 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
           last unless length($1) >= $indent->[-1];
           push @multiline, substr(shift(@$lines), length($1));
       }
-  
+
       my $j = (substr($string, 0, 1) eq '>') ? ' ' : "\n";
       my $t = (substr($string, 1, 1) eq '-') ? ''  : "\n";
       return join( $j, @multiline ) . $t;
   }
-  
+
   # Load an array
   sub _load_array {
       my ($self, $array, $indent, $lines) = @_;
-  
+
       while ( @$lines ) {
           # Check for a new document
           if ( $lines->[0] =~ /^(?:---|\.\.\.)/ ) {
@@ -627,7 +1372,7 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
               }
               return 1;
           }
-  
+
           # Check the indent level
           $lines->[0] =~ /^(\s*)/;
           if ( length($1) < $indent->[-1] ) {
@@ -635,14 +1380,14 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
           } elsif ( length($1) > $indent->[-1] ) {
               die \"YAML::Tiny found bad indenting in line '$lines->[0]'";
           }
-  
+
           if ( $lines->[0] =~ /^(\s*\-\s+)[^\'\"]\S*\s*:(?:\s+|$)/ ) {
               # Inline nested hash
               my $indent2 = length("$1");
               $lines->[0] =~ s/-/ /;
               push @$array, { };
               $self->_load_hash( $array->[-1], [ @$indent, $indent2 ], $lines );
-  
+
           } elsif ( $lines->[0] =~ /^\s*\-\s*\z/ ) {
               shift @$lines;
               unless ( @$lines ) {
@@ -661,24 +1406,24 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
                           $array->[-1], [ @$indent, $indent2 ], $lines
                       );
                   }
-  
+
               } elsif ( $lines->[0] =~ /^(\s*)\S/ ) {
                   push @$array, { };
                   $self->_load_hash(
                       $array->[-1], [ @$indent, length("$1") ], $lines
                   );
-  
+
               } else {
                   die \"YAML::Tiny failed to classify line '$lines->[0]'";
               }
-  
+
           } elsif ( $lines->[0] =~ /^\s*\-(\s*)(.+?)\s*\z/ ) {
               # Array entry with a value
               shift @$lines;
               push @$array, $self->_load_scalar(
                   "$2", [ @$indent, undef ], $lines
               );
-  
+
           } elsif ( defined $indent->[-2] and $indent->[-1] == $indent->[-2] ) {
               # This is probably a structure like the following...
               # ---
@@ -688,19 +1433,19 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
               #
               # ... so lets return and let the hash parser handle it
               return 1;
-  
+
           } else {
               die \"YAML::Tiny failed to classify line '$lines->[0]'";
           }
       }
-  
+
       return 1;
   }
-  
+
   # Load a hash
   sub _load_hash {
       my ($self, $hash, $indent, $lines) = @_;
-  
+
       while ( @$lines ) {
           # Check for a new document
           if ( $lines->[0] =~ /^(?:---|\.\.\.)/ ) {
@@ -709,7 +1454,7 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
               }
               return 1;
           }
-  
+
           # Check the indent level
           $lines->[0] =~ /^(\s*)/;
           if ( length($1) < $indent->[-1] ) {
@@ -717,10 +1462,10 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
           } elsif ( length($1) > $indent->[-1] ) {
               die \"YAML::Tiny found bad indenting in line '$lines->[0]'";
           }
-  
+
           # Find the key
           my $key;
-  
+
           # Quoted keys
           if ( $lines->[0] =~
               s/^\s*$re_capture_single_quoted$re_key_value_separator//
@@ -744,11 +1489,11 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
           else {
               die \"YAML::Tiny failed to classify line '$lines->[0]'";
           }
-  
+
           if ( exists $hash->{$key} ) {
               warn "YAML::Tiny found a duplicate key '$key' in line '$lines->[0]'";
           }
-  
+
           # Do we have a value?
           if ( length $lines->[0] ) {
               # Yes
@@ -781,23 +1526,23 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
               }
           }
       }
-  
+
       return 1;
   }
-  
-  
+
+
   ###
   # Dumper functions:
-  
+
   # Save an object to a file
   sub _dump_file {
       my $self = shift;
-  
+
       require Fcntl;
-  
+
       # Check the file
       my $file = shift or $self->_error( 'You did not specify a file name' );
-  
+
       my $fh;
       # flock if available (or warn if not possible for OS-specific reasons)
       if ( _can_flock() ) {
@@ -807,13 +1552,13 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
           unless ( $fh ) {
               $self->_error("Failed to open file '$file' for writing: $!");
           }
-  
+
           # Use no translation and strict UTF-8
           binmode( $fh, ":raw:encoding(UTF-8)");
-  
+
           flock( $fh, Fcntl::LOCK_EX() )
               or warn "Couldn't lock '$file' for reading: $!";
-  
+
           # truncate and spew contents
           truncate $fh, 0;
           seek $fh, 0, 0;
@@ -821,39 +1566,39 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
       else {
           open $fh, ">:unix:encoding(UTF-8)", $file;
       }
-  
+
       # serialize and spew to the handle
       print {$fh} $self->_dump_string;
-  
+
       # close the file (release the lock)
       unless ( close $fh ) {
           $self->_error("Failed to close file '$file': $!");
       }
-  
+
       return 1;
   }
-  
+
   # Save an object to a string
   sub _dump_string {
       my $self = shift;
       return '' unless ref $self && @$self;
-  
+
       # Iterate over the documents
       my $indent = 0;
       my @lines  = ();
-  
+
       eval {
           foreach my $cursor ( @$self ) {
               push @lines, '---';
-  
+
               # An empty document
               if ( ! defined $cursor ) {
                   # Do nothing
-  
+
               # A scalar document
               } elsif ( ! ref $cursor ) {
                   $lines[-1] .= ' ' . $self->_dump_scalar( $cursor );
-  
+
               # A list at the root
               } elsif ( ref $cursor eq 'ARRAY' ) {
                   unless ( @$cursor ) {
@@ -861,7 +1606,7 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
                       next;
                   }
                   push @lines, $self->_dump_array( $cursor, $indent, {} );
-  
+
               # A hash at the root
               } elsif ( ref $cursor eq 'HASH' ) {
                   unless ( %$cursor ) {
@@ -869,7 +1614,7 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
                       next;
                   }
                   push @lines, $self->_dump_hash( $cursor, $indent, {} );
-  
+
               } else {
                   die \("Cannot serialize " . ref($cursor));
               }
@@ -880,16 +1625,16 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
       } elsif ( $@ ) {
           $self->_error($@);
       }
-  
+
       join '', map { "$_\n" } @lines;
   }
-  
+
   sub _has_internal_string_value {
       my $value = shift;
       my $b_obj = B::svref_2object(\$value);  # for round trip problem
       return $b_obj->FLAGS & B::SVf_POK();
   }
-  
+
   sub _dump_scalar {
       my $string = $_[1];
       my $is_key = $_[2];
@@ -922,7 +1667,7 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
       }
       return $string;
   }
-  
+
   sub _dump_array {
       my ($self, $array, $indent, $seen) = @_;
       if ( $seen->{refaddr($array)}++ ) {
@@ -935,7 +1680,7 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
           if ( ! $type ) {
               $line .= ' ' . $self->_dump_scalar( $el );
               push @lines, $line;
-  
+
           } elsif ( $type eq 'ARRAY' ) {
               if ( @$el ) {
                   push @lines, $line;
@@ -944,7 +1689,7 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
                   $line .= ' []';
                   push @lines, $line;
               }
-  
+
           } elsif ( $type eq 'HASH' ) {
               if ( keys %$el ) {
                   push @lines, $line;
@@ -953,15 +1698,15 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
                   $line .= ' {}';
                   push @lines, $line;
               }
-  
+
           } else {
               die \"YAML::Tiny does not support $type references";
           }
       }
-  
+
       @lines;
   }
-  
+
   sub _dump_hash {
       my ($self, $hash, $indent, $seen) = @_;
       if ( $seen->{refaddr($hash)}++ ) {
@@ -975,7 +1720,7 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
           if ( ! $type ) {
               $line .= ' ' . $self->_dump_scalar( $el );
               push @lines, $line;
-  
+
           } elsif ( $type eq 'ARRAY' ) {
               if ( @$el ) {
                   push @lines, $line;
@@ -984,7 +1729,7 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
                   $line .= ' []';
                   push @lines, $line;
               }
-  
+
           } elsif ( $type eq 'HASH' ) {
               if ( keys %$el ) {
                   push @lines, $line;
@@ -993,23 +1738,23 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
                   $line .= ' {}';
                   push @lines, $line;
               }
-  
+
           } else {
               die \"YAML::Tiny does not support $type references";
           }
       }
-  
+
       @lines;
   }
-  
-  
-  
+
+
+
   #####################################################################
   # DEPRECATED API methods:
-  
+
   # Error storage (DEPRECATED as of 1.57)
   our $errstr    = '';
-  
+
   # Set error
   sub _error {
       require Carp;
@@ -1017,7 +1762,7 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
       $errstr =~ s/ at \S+ line \d+.*//;
       Carp::croak( $errstr );
   }
-  
+
   # Retrieve error
   my $errstr_warned;
   sub errstr {
@@ -1026,17 +1771,17 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
           unless $errstr_warned++;
       $errstr;
   }
-  
-  
-  
-  
+
+
+
+
   #####################################################################
   # Helper functions. Possibly not needed.
-  
-  
+
+
   # Use to detect nv or iv
   use B;
-  
+
   # XXX-INGY Is flock YAML::Tiny's responsibility?
   # Some platforms can't flock :-(
   # XXX-XDG I think it is.  When reading and writing files, we ought
@@ -1055,13 +1800,13 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
           return $HAS_FLOCK;
       }
   }
-  
-  
+
+
   # XXX-INGY Is this core in 5.8.1? Can we remove this?
   # XXX-XDG Scalar::Util 1.18 didn't land until 5.8.8, so we need this
   #####################################################################
   # Use Scalar::Util if possible, otherwise emulate it
-  
+
   use Scalar::Util ();
   BEGIN {
       local $@;
@@ -1086,11 +1831,11 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
   END_PERL
       }
   }
-  
+
   delete $YAML::Tiny::{refaddr};
-  
+
   1;
-  
+
   # XXX-INGY Doc notes I'm putting up here. Changing the doc when it's wrong
   # but leaving grey area stuff up here.
   #
@@ -1101,44 +1846,44 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
   # dubious OO API.
   #
   # null and bool explanations may be outdated.
-  
+
   __END__
-  
+
   =pod
-  
+
   =head1 NAME
-  
+
   YAML::Tiny - Read/Write YAML files with as little code as possible
-  
+
   =head1 VERSION
-  
+
   version 1.69
-  
+
   =head1 PREAMBLE
-  
+
   The YAML specification is huge. Really, B<really> huge. It contains all the
   functionality of XML, except with flexibility and choice, which makes it
   easier to read, but with a formal specification that is more complex than
   XML.
-  
+
   The original pure-Perl implementation L<YAML> costs just over 4 megabytes
   of memory to load. Just like with Windows F<.ini> files (3 meg to load) and
   CSS (3.5 meg to load) the situation is just asking for a B<YAML::Tiny>
   module, an incomplete but correct and usable subset of the functionality,
   in as little code as possible.
-  
+
   Like the other C<::Tiny> modules, YAML::Tiny has no non-core dependencies,
   does not require a compiler to install, is back-compatible to Perl v5.8.1,
   and can be inlined into other modules if needed.
-  
+
   In exchange for this adding this extreme flexibility, it provides support
   for only a limited subset of YAML. But the subset supported contains most
   of the features for the more common uses of YAML.
-  
+
   =head1 SYNOPSIS
-  
+
   Assuming F<file.yml> like this:
-  
+
       ---
       rootproperty: blah
       section:
@@ -1146,400 +1891,400 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
         three: four
         Foo: Bar
         empty: ~
-  
-  
+
+
   Read and write F<file.yml> like this:
-  
+
       use YAML::Tiny;
-  
+
       # Open the config
       my $yaml = YAML::Tiny->read( 'file.yml' );
-  
+
       # Get a reference to the first document
       my $config = $yaml->[0];
-  
+
       # Or read properties directly
       my $root = $yaml->[0]->{rootproperty};
       my $one  = $yaml->[0]->{section}->{one};
       my $Foo  = $yaml->[0]->{section}->{Foo};
-  
+
       # Change data directly
       $yaml->[0]->{newsection} = { this => 'that' }; # Add a section
       $yaml->[0]->{section}->{Foo} = 'Not Bar!';     # Change a value
       delete $yaml->[0]->{section};                  # Delete a value
-  
+
       # Save the document back to the file
       $yaml->write( 'file.yml' );
-  
+
   To create a new YAML file from scratch:
-  
+
       # Create a new object with a single hashref document
       my $yaml = YAML::Tiny->new( { wibble => "wobble" } );
-  
+
       # Add an arrayref document
       push @$yaml, [ 'foo', 'bar', 'baz' ];
-  
+
       # Save both documents to a file
       $yaml->write( 'data.yml' );
-  
+
   Then F<data.yml> will contain:
-  
+
       ---
       wibble: wobble
       ---
       - foo
       - bar
       - baz
-  
+
   =head1 DESCRIPTION
-  
+
   B<YAML::Tiny> is a perl class for reading and writing YAML-style files,
   written with as little code as possible, reducing load time and memory
   overhead.
-  
+
   Most of the time it is accepted that Perl applications use a lot
   of memory and modules. The B<::Tiny> family of modules is specifically
   intended to provide an ultralight and zero-dependency alternative to
   many more-thorough standard modules.
-  
+
   This module is primarily for reading human-written files (like simple
   config files) and generating very simple human-readable files. Note that
   I said B<human-readable> and not B<geek-readable>. The sort of files that
   your average manager or secretary should be able to look at and make
   sense of.
-  
+
   =for stopwords normalise
-  
+
   L<YAML::Tiny> does not generate comments, it won't necessarily preserve the
   order of your hashes, and it will normalise if reading in and writing out
   again.
-  
+
   It only supports a very basic subset of the full YAML specification.
-  
+
   =for stopwords embeddable
-  
+
   Usage is targeted at files like Perl's META.yml, for which a small and
   easily-embeddable module is extremely attractive.
-  
+
   Features will only be added if they are human readable, and can be written
   in a few lines of code. Please don't be offended if your request is
   refused. Someone has to draw the line, and for YAML::Tiny that someone
   is me.
-  
+
   If you need something with more power move up to L<YAML> (7 megabytes of
   memory overhead) or L<YAML::XS> (6 megabytes memory overhead and requires
   a C compiler).
-  
+
   To restate, L<YAML::Tiny> does B<not> preserve your comments, whitespace,
   or the order of your YAML data. But it should round-trip from Perl
   structure to file and back again just fine.
-  
+
   =head1 METHODS
-  
+
   =for Pod::Coverage HAVE_UTF8 refaddr
-  
+
   =head2 new
-  
+
   The constructor C<new> creates a C<YAML::Tiny> object as a blessed array
   reference.  Any arguments provided are taken as separate documents
   to be serialized.
-  
+
   =head2 read $filename
-  
+
   The C<read> constructor reads a YAML file from a file name,
   and returns a new C<YAML::Tiny> object containing the parsed content.
-  
+
   Returns the object on success or throws an error on failure.
-  
+
   =head2 read_string $string;
-  
+
   The C<read_string> constructor reads YAML data from a character string, and
   returns a new C<YAML::Tiny> object containing the parsed content.  If you have
   read the string from a file yourself, be sure that you have correctly decoded
   it into characters first.
-  
+
   Returns the object on success or throws an error on failure.
-  
+
   =head2 write $filename
-  
+
   The C<write> method generates the file content for the properties, and
   writes it to disk using UTF-8 encoding to the filename specified.
-  
+
   Returns true on success or throws an error on failure.
-  
+
   =head2 write_string
-  
+
   Generates the file content for the object and returns it as a character
   string.  This may contain non-ASCII characters and should be encoded
   before writing it to a file.
-  
+
   Returns true on success or throws an error on failure.
-  
+
   =for stopwords errstr
-  
+
   =head2 errstr (DEPRECATED)
-  
+
   Prior to version 1.57, some errors were fatal and others were available only
   via the C<$YAML::Tiny::errstr> variable, which could be accessed via the
   C<errstr()> method.
-  
+
   Starting with version 1.57, all errors are fatal and throw exceptions.
-  
+
   The C<$errstr> variable is still set when exceptions are thrown, but
   C<$errstr> and the C<errstr()> method are deprecated and may be removed in a
   future release.  The first use of C<errstr()> will issue a deprecation
   warning.
-  
+
   =head1 FUNCTIONS
-  
+
   YAML::Tiny implements a number of functions to add compatibility with
   the L<YAML> API. These should be a drop-in replacement.
-  
+
   =head2 Dump
-  
+
     my $string = Dump(list-of-Perl-data-structures);
-  
+
   Turn Perl data into YAML. This function works very much like
   Data::Dumper::Dumper().
-  
+
   It takes a list of Perl data structures and dumps them into a serialized
   form.
-  
+
   It returns a character string containing the YAML stream.  Be sure to encode
   it as UTF-8 before serializing to a file or socket.
-  
+
   The structures can be references or plain scalars.
-  
+
   Dies on any error.
-  
+
   =head2 Load
-  
+
     my @data_structures = Load(string-containing-a-YAML-stream);
-  
+
   Turn YAML into Perl data. This is the opposite of Dump.
-  
+
   Just like L<Storable>'s thaw() function or the eval() function in relation
   to L<Data::Dumper>.
-  
+
   It parses a character string containing a valid YAML stream into a list of
   Perl data structures representing the individual YAML documents.  Be sure to
   decode the character string  correctly if the string came from a file or
   socket.
-  
+
     my $last_data_structure = Load(string-containing-a-YAML-stream);
-  
+
   For consistency with YAML.pm, when Load is called in scalar context, it
   returns the data structure corresponding to the last of the YAML documents
   found in the input stream.
-  
+
   Dies on any error.
-  
+
   =head2 freeze() and thaw()
-  
+
   Aliases to Dump() and Load() for L<Storable> fans. This will also allow
   YAML::Tiny to be plugged directly into modules like POE.pm, that use the
   freeze/thaw API for internal serialization.
-  
+
   =head2 DumpFile(filepath, list)
-  
+
   Writes the YAML stream to a file with UTF-8 encoding instead of just
   returning a string.
-  
+
   Dies on any error.
-  
+
   =head2 LoadFile(filepath)
-  
+
   Reads the YAML stream from a UTF-8 encoded file instead of a string.
-  
+
   Dies on any error.
-  
+
   =head1 YAML TINY SPECIFICATION
-  
+
   This section of the documentation provides a specification for "YAML Tiny",
   a subset of the YAML specification.
-  
+
   It is based on and described comparatively to the YAML 1.1 Working Draft
   2004-12-28 specification, located at L<http://yaml.org/spec/current.html>.
-  
+
   Terminology and chapter numbers are based on that specification.
-  
+
   =head2 1. Introduction and Goals
-  
+
   The purpose of the YAML Tiny specification is to describe a useful subset
   of the YAML specification that can be used for typical document-oriented
   use cases such as configuration files and simple data structure dumps.
-  
+
   =for stopwords extensibility
-  
+
   Many specification elements that add flexibility or extensibility are
   intentionally removed, as is support for complex data structures, class
   and object-orientation.
-  
+
   In general, the YAML Tiny language targets only those data structures
   available in JSON, with the additional limitation that only simple keys
   are supported.
-  
+
   As a result, all possible YAML Tiny documents should be able to be
   transformed into an equivalent JSON document, although the reverse is
   not necessarily true (but will be true in simple cases).
-  
+
   =for stopwords PCRE
-  
+
   As a result of these simplifications the YAML Tiny specification should
   be implementable in a (relatively) small amount of code in any language
   that supports Perl Compatible Regular Expressions (PCRE).
-  
+
   =head2 2. Introduction
-  
+
   YAML Tiny supports three data structures. These are scalars (in a variety
   of forms), block-form sequences and block-form mappings. Flow-style
   sequences and mappings are not supported, with some minor exceptions
   detailed later.
-  
+
   The use of three dashes "---" to indicate the start of a new document is
   supported, and multiple documents per file/stream is allowed.
-  
+
   Both line and inline comments are supported.
-  
+
   Scalars are supported via the plain style, single quote and double quote,
   as well as literal-style and folded-style multi-line scalars.
-  
+
   The use of explicit tags is not supported.
-  
+
   The use of "null" type scalars is supported via the ~ character.
-  
+
   The use of "bool" type scalars is not supported.
-  
+
   =for stopwords serializer
-  
+
   However, serializer implementations should take care to explicitly escape
   strings that match a "bool" keyword in the following set to prevent other
   implementations that do support "bool" accidentally reading a string as a
   boolean
-  
+
     y|Y|yes|Yes|YES|n|N|no|No|NO
     |true|True|TRUE|false|False|FALSE
     |on|On|ON|off|Off|OFF
-  
+
   The use of anchors and aliases is not supported.
-  
+
   The use of directives is supported only for the %YAML directive.
-  
+
   =head2 3. Processing YAML Tiny Information
-  
+
   B<Processes>
-  
+
   =for stopwords deserialization
-  
+
   The YAML specification dictates three-phase serialization and three-phase
   deserialization.
-  
+
   The YAML Tiny specification does not mandate any particular methodology
   or mechanism for parsing.
-  
+
   Any compliant parser is only required to parse a single document at a
   time. The ability to support streaming documents is optional and most
   likely non-typical.
-  
+
   =for stopwords acyclic
-  
+
   Because anchors and aliases are not supported, the resulting representation
   graph is thus directed but (unlike the main YAML specification) B<acyclic>.
-  
+
   Circular references/pointers are not possible, and any YAML Tiny serializer
   detecting a circular reference should error with an appropriate message.
-  
+
   B<Presentation Stream>
-  
+
   =for stopwords unicode
-  
+
   YAML Tiny reads and write UTF-8 encoded files.  Operations on strings expect
   or produce Unicode characters not UTF-8 encoded bytes.
-  
+
   B<Loading Failure Points>
-  
+
   =for stopwords modality
-  
+
   =for stopwords parsers
-  
+
   YAML Tiny parsers and emitters are not expected to recover from, or
   adapt to, errors. The specific error modality of any implementation is
   not dictated (return codes, exceptions, etc.) but is expected to be
   consistent.
-  
+
   =head2 4. Syntax
-  
+
   B<Character Set>
-  
+
   YAML Tiny streams are processed in memory as Unicode characters and
   read/written with UTF-8 encoding.
-  
+
   The escaping and unescaping of the 8-bit YAML escapes is required.
-  
+
   The escaping and unescaping of 16-bit and 32-bit YAML escapes is not
   required.
-  
+
   B<Indicator Characters>
-  
+
   Support for the "~" null/undefined indicator is required.
-  
+
   Implementations may represent this as appropriate for the underlying
   language.
-  
+
   Support for the "-" block sequence indicator is required.
-  
+
   Support for the "?" mapping key indicator is B<not> required.
-  
+
   Support for the ":" mapping value indicator is required.
-  
+
   Support for the "," flow collection indicator is B<not> required.
-  
+
   Support for the "[" flow sequence indicator is B<not> required, with
   one exception (detailed below).
-  
+
   Support for the "]" flow sequence indicator is B<not> required, with
   one exception (detailed below).
-  
+
   Support for the "{" flow mapping indicator is B<not> required, with
   one exception (detailed below).
-  
+
   Support for the "}" flow mapping indicator is B<not> required, with
   one exception (detailed below).
-  
+
   Support for the "#" comment indicator is required.
-  
+
   Support for the "&" anchor indicator is B<not> required.
-  
+
   Support for the "*" alias indicator is B<not> required.
-  
+
   Support for the "!" tag indicator is B<not> required.
-  
+
   Support for the "|" literal block indicator is required.
-  
+
   Support for the ">" folded block indicator is required.
-  
+
   Support for the "'" single quote indicator is required.
-  
+
   Support for the """ double quote indicator is required.
-  
+
   Support for the "%" directive indicator is required, but only
   for the special case of a %YAML version directive before the
   "---" document header, or on the same line as the document header.
-  
+
   For example:
-  
+
     %YAML 1.1
     ---
     - A sequence with a single element
-  
+
   Special Exception:
-  
+
   To provide the ability to support empty sequences
   and mappings, support for the constructs [] (empty sequence) and {}
   (empty mapping) are required.
-  
+
   For example,
-  
+
     %YAML 1.1
     # A document consisting of only an empty mapping
     --- {}
@@ -1549,177 +2294,177 @@ $fatpacked{"YAML/Tiny.pm"} = '#line '.(1+__LINE__).' "'.__FILE__."\"\n".<<'YAML_
     - foo
     - {}
     - bar
-  
+
   B<Syntax Primitives>
-  
+
   Other than the empty sequence and mapping cases described above, YAML Tiny
   supports only the indentation-based block-style group of contexts.
-  
+
   All five scalar contexts are supported.
-  
+
   Indentation spaces work as per the YAML specification in all cases.
-  
+
   Comments work as per the YAML specification in all simple cases.
   Support for indented multi-line comments is B<not> required.
-  
+
   Separation spaces work as per the YAML specification in all cases.
-  
+
   B<YAML Tiny Character Stream>
-  
+
   The only directive supported by the YAML Tiny specification is the
   %YAML language/version identifier. Although detected, this directive
   will have no control over the parsing itself.
-  
+
   =for stopwords recognise
-  
+
   The parser must recognise both the YAML 1.0 and YAML 1.1+ formatting
   of this directive (as well as the commented form, although no explicit
   code should be needed to deal with this case, being a comment anyway)
-  
+
   That is, all of the following should be supported.
-  
+
     --- #YAML:1.0
     - foo
-  
+
     %YAML:1.0
     ---
     - foo
-  
+
     % YAML 1.1
     ---
     - foo
-  
+
   Support for the %TAG directive is B<not> required.
-  
+
   Support for additional directives is B<not> required.
-  
+
   Support for the document boundary marker "---" is required.
-  
+
   Support for the document boundary market "..." is B<not> required.
-  
+
   If necessary, a document boundary should simply by indicated with a
   "---" marker, with not preceding "..." marker.
-  
+
   Support for empty streams (containing no documents) is required.
-  
+
   Support for implicit document starts is required.
-  
+
   That is, the following must be equivalent.
-  
+
    # Full form
    %YAML 1.1
    ---
    foo: bar
-  
+
    # Implicit form
    foo: bar
-  
+
   B<Nodes>
-  
+
   Support for nodes optional anchor and tag properties is B<not> required.
-  
+
   Support for node anchors is B<not> required.
-  
+
   Support for node tags is B<not> required.
-  
+
   Support for alias nodes is B<not> required.
-  
+
   Support for flow nodes is B<not> required.
-  
+
   Support for block nodes is required.
-  
+
   B<Scalar Styles>
-  
+
   Support for all five scalar styles is required as per the YAML
   specification, although support for quoted scalars spanning more
   than one line is B<not> required.
-  
+
   Support for multi-line scalar documents starting on the header
   is not required.
-  
+
   Support for the chomping indicators on multi-line scalar styles
   is required.
-  
+
   B<Collection Styles>
-  
+
   Support for block-style sequences is required.
-  
+
   Support for flow-style sequences is B<not> required.
-  
+
   Support for block-style mappings is required.
-  
+
   Support for flow-style mappings is B<not> required.
-  
+
   Both sequences and mappings should be able to be arbitrarily
   nested.
-  
+
   Support for plain-style mapping keys is required.
-  
+
   Support for quoted keys in mappings is B<not> required.
-  
+
   Support for "?"-indicated explicit keys is B<not> required.
-  
+
   =for stopwords endeth
-  
+
   Here endeth the specification.
-  
+
   =head2 Additional Perl-Specific Notes
-  
+
   For some Perl applications, it's important to know if you really have a
   number and not a string.
-  
+
   That is, in some contexts is important that 3 the number is distinctive
   from "3" the string.
-  
+
   Because even Perl itself is not trivially able to understand the difference
   (certainly without XS-based modules) Perl implementations of the YAML Tiny
   specification are not required to retain the distinctiveness of 3 vs "3".
-  
+
   =head1 SUPPORT
-  
+
   Bugs should be reported via the CPAN bug tracker at
-  
+
   L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=YAML-Tiny>
-  
+
   =begin html
-  
+
   For other issues, or commercial enhancement or support, please contact
   <a href="http://ali.as/">Adam Kennedy</a> directly.
-  
+
   =end html
-  
+
   =head1 AUTHOR
-  
+
   Adam Kennedy E<lt>adamk@cpan.orgE<gt>
-  
+
   =head1 SEE ALSO
-  
+
   =over 4
-  
+
   =item * L<YAML>
-  
+
   =item * L<YAML::Syck>
-  
+
   =item * L<Config::Tiny>
-  
+
   =item * L<CSS::Tiny>
-  
+
   =item * L<http://use.perl.org/use.perl.org/_Alias/journal/29427.html>
-  
+
   =item * L<http://ali.as/>
-  
+
   =back
-  
+
   =head1 COPYRIGHT
-  
+
   Copyright 2006 - 2013 Adam Kennedy.
-  
+
   This program is free software; you can redistribute
   it and/or modify it under the same terms as Perl itself.
-  
+
   The full text of the license can be found in the
   LICENSE file included with this module.
-  
+
   =cut
 YAML_TINY
 
@@ -1764,18 +2509,20 @@ use strict;
 use Data::Dumper;
 use File::stat;
 use Math::BaseCalc;
+use TGen::parseSNPvcf;
+use TGen::parseMpileup;
 use lib '/Users/rhalperin/perl5/lib/perl5/';
 use YAML::Tiny;
 use List::Util qw[min max];
 use Cwd;
 my $dir = getcwd;
-use TGen::parseSNPvcf;
-use TGen::parseMpileup;
+
 
 my $configFile=$ARGV[0];
 my $yaml = YAML::Tiny->read($configFile);
 chomp($yaml->[0]);
 my $param=$yaml->[0];
+print "read YAML\n";
 
 my $block=$ARGV[1];
 my $isTumor=$ARGV[2];
@@ -1784,14 +2531,17 @@ if ($isTumor)
 {
   my $calc = new Math::BaseCalc(digits => ['N','A','C','G','T']);
   my $mPileup  = `cd $param->{'samPath'}\n ./samtools mpileup -B -R -r $block -l $param->{'regionsFile'} --rf 0x2 --ff 0x400 -O -s -Q 0 -C $param->{'mpileupC'} -f $param->{'refGenome'} $param->{'bamFile'}`;
-  my $output=parseMpileup->parse($mPileup,1,$param);
+  #my $output;
+  my $output=TGen::parseMpileup->parse($mPileup,1,$param);
   my ($chr,$range)=split(/\:/,$block);
   my $snpVCF=$param->{'snpVCFpath'} . $chr . $param->{'snpVCFname'};
   my $vcfText= `cd $param->{'tabixPath'} \n./tabix $snpVCF $block`;
-  my $snpData = parseSNPvcf->getAFbyNT($vcfText,$param->{'pvFreq'});
+  #my $snpData;
+  my $snpData = TGen::parseSNPvcf->getAFbyNT($vcfText,$param->{'pvFreq'});
   my $cosmicVCF=$param->{'cosmicVCF'};
   my $cosmicText= `cd $param->{'tabixPath'} \n./tabix $cosmicVCF $block`;
-  my $cosmicData = parseSNPvcf->getCNT($cosmicText);
+  #my $cosmicData;
+  my $cosmicData = TGen::parseSNPvcf->getCNT($cosmicText);
   my $i=0;
   my $dataMat='';
   my $rdMat='';
@@ -1893,12 +2643,12 @@ else
   my %ntInt=('A' => 1, 'C' => 2, 'G' =>3, 'T' =>4, 'R' => 5, 'Y' => 6, 'K' => 7, 'M' => 8, 'S' => 9,
   'W' => 10, 'B' => 11, 'D' => 12, 'H' => 13, 'V' => 14, 'N' =>15, '-' => 16, '*' => 17);
   my $mPileup  = `cd $param->{'samPath'}\n ./samtools mpileup -r $block -l $param->{'regionsFile'} --rf 0x2 --ff 0x400 -O -s -Q 0 -C $param->{'mpileupC'} -f $param->{'refGenome'} -b $param->{'bamList'}`;
-  my $output=parseMpileup->parseMulti($mPileup,0,$param);
+  my $output=TGen::parseMpileup->parseMulti($mPileup,0,$param);
   my $pvFreq=$param->{'pvFreq'};
   my ($chr,$range)=split(/\:/,$block);
   my $snpVCF=$param->{'snpVCFpath'} . $chr . $param->{'snpVCFname'};
   my $vcfText= `cd $param->{'tabixPath'}\n ./tabix $snpVCF $block`;
-  my $snpData = parseSNPvcf->getAFbyNT($vcfText,$pvFreq);
+  my $snpData = TGen::parseSNPvcf->getAFbyNT($vcfText,$pvFreq);
   my $i=0;
   my $dataMat='';
   foreach my $sample (@$output)
