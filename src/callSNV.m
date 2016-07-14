@@ -68,10 +68,14 @@ end
 
 %%% find likelihood of somatic mutations 
 for i=1:length(f)
-    alpha(:,i)=min(expAF(:,i),1-expAF(:,i))*W(i);
-    beta(:,i)=max(expAF(:,i),1-expAF(:,i))*W(i);
-    cloneLik(:,i)=bbinopdf_ln(T.BCountF+T.BCountR,T.ReadDepthPass,alpha(:,i),beta(:,i));
+    alpha(:,i)=expAF(:,i)*W(i);
+    beta(:,i)=(1-expAF(:,i))*W(i);
+    bIdx=T.ApopAF>=T.BpopAF;
+    cloneLik(bIdx,i)=bbinopdf_ln(T.BCountF(bIdx)+T.BCountR(bIdx),T.ReadDepthPass(bIdx),alpha(bIdx,i),beta(bIdx,i));
+    aIdx=T.ApopAF<T.BpopAF;
+    cloneLik(aIdx,i)=bbinopdf_ln(T.ACountF(aIdx)+T.ACountR(aIdx),T.ReadDepthPass(aIdx),alpha(aIdx,i),beta(aIdx,i));
 end
+
 [pDataSomatic,cloneId]=max(cloneLik,[],2);
 
 %%% find expected somatic AF for most likely clone
