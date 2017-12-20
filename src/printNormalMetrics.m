@@ -87,6 +87,7 @@ parfor chrIdx=1:length(chrList)
             for i=1:length(output)
                 fprintf(ferror,'%s\n',output{i});
             end
+            startIdx=endIdx+1;
             continue;
         end
         %%% calculate normal metrics
